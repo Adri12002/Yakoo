@@ -76,16 +76,21 @@ function AppContent() {
       </header>
 
       {/* Mobile Header (Minimal) */}
-      <header className="bg-white border-b border-gray-200 shadow-sm md:hidden h-14 flex items-center justify-between px-4 sticky top-0 z-10">
+     <header className="bg-white border-b border-gray-200 shadow-sm md:hidden h-14 flex items-center justify-between px-4 sticky top-0 z-10">
          <h1 onClick={() => setView('home')} className="text-lg font-bold text-emerald-700 flex items-center gap-2">
             <BookOpen className="w-5 h-5" />
             Mandarin Anki
          </h1>
-         {user ? (
-            <button onClick={logout} className="text-gray-500"><LogOut size={20} /></button>
-         ) : (
-            <button onClick={signIn} className="text-emerald-700 font-bold text-sm">Sign In</button>
-         )}
+         <div className="flex items-center gap-3">
+           <button onClick={() => setView('settings')} className="text-gray-500" title="Settings">
+             <SettingsIcon size={20} />
+           </button>
+           {user ? (
+              <button onClick={logout} className="text-gray-500"><LogOut size={20} /></button>
+           ) : (
+              <button onClick={signIn} className="text-emerald-700 font-bold text-sm">Sign In</button>
+           )}
+         </div>
       </header>
 
       {/* Main Content (Padding for bottom nav) */}
