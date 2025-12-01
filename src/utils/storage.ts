@@ -1,4 +1,5 @@
 import { Card } from '../types';
+import { getSettings } from '../pages/Settings';
 import { db } from './firebase';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
@@ -47,7 +48,7 @@ export const storage = {
       
       return {
         ...c,
-        srsState: c.srsRepetitions === 0 ? 'new' : 'review',
+        srsState: (c.srsRepetitions === 0 ? 'new' : 'review') as 'new' | 'review',
         srsStability: s,
         srsDifficulty: d,
         // If it's new (0 reps), clear the due date to ensure it enters the "New Card" queue
@@ -56,9 +57,9 @@ export const storage = {
     });
 
     if (changed) {
-      storage.saveCards(migrated);
+      storage.saveCards(migrated as Card[]);
     }
-    return migrated;
+    return migrated as Card[];
   },
 
   // Force reset of 0-rep cards to 'new' state if they were incorrectly migrated
@@ -197,12 +198,14 @@ export const storage = {
   syncToCloud: async (cards: Card[], userId: string) => {
     if (!userId) return;
     try {
-      // Get current stories to include in sync
+      // Get current stories and settings to include in sync
       const stories = storage.getStories();
+      const settings = getSettings();
       
       await setDoc(doc(db, COLLECTION_NAME, userId), {
         cards,
-        stories, // Add stories to the cloud doc
+        stories, 
+        settings, // Sync settings (including API Key)
         lastUpdated: new Date().toISOString()
       });
     } catch (e) {
@@ -224,6 +227,14 @@ export const storage = {
         // Load stories
         if (data.stories) {
           localStorage.setItem(STORIES_KEY, JSON.stringify(data.stories));
+        }
+
+        // Load settings (if available)
+        if (data.settings) {
+           // Merge with existing local settings just in case, but cloud takes precedence for key
+           const current = getSettings();
+           const merged = { ...current, ...data.settings };
+           localStorage.setItem('mandarin-anki-settings', JSON.stringify(merged));
         }
         
         localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudCards));

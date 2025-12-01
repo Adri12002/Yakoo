@@ -22,20 +22,24 @@ export const ai = {
     }
 
     try {
-      const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
+      // Use Netlify Function proxy to avoid CORS/Network issues
+      // We send the API key in the body to the proxy, which then calls Mistral
+      const response = await fetch('/.netlify/functions/chat', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${settings.mistralApiKey}`
         },
         body: JSON.stringify({
-          model: "mistral-small",
+          apiKey: settings.mistralApiKey,
           messages: messages,
           response_format: jsonMode ? { type: "json_object" } : undefined
         })
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+            return { success: false, error: "Invalid API Key. Please check your Mistral Key in Settings." };
+        }
         const errData = await response.json();
         return { success: false, error: errData.error?.message || `API Error: ${response.status}` };
       }

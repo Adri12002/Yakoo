@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { BookOpen, RefreshCw, Plus, Type, Eye, EyeOff, Play, Pause, CheckCircle, AlertCircle, HelpCircle, Save, Trash2, List, ChevronLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { BookOpen, RefreshCw, Plus, Type, Play, Pause, CheckCircle, AlertCircle, HelpCircle, Save, Trash2, List, ChevronLeft } from 'lucide-react';
 import { storage, SavedStory } from '../../utils/storage';
 import { ai } from '../../utils/ai';
 import { Card } from '../../types';

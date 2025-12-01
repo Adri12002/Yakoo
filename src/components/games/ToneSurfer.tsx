@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, CheckCircle, Volume2, Music } from 'lucide-react';
+import { Volume2, Music } from 'lucide-react';
 import { storage } from '../../utils/storage';
 
 interface Question {

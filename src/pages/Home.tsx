@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Play, Upload, RotateCw, TrendingUp, Calendar, AlertCircle } from 'lucide-react';
+import { Play, Upload, RotateCw, Calendar, AlertCircle } from 'lucide-react';
 import { View } from '../App';
 import { storage } from '../utils/storage';
-import { isCardDue } from '../utils/srs';
 import { Card } from '../types';
 
 interface HomeProps {

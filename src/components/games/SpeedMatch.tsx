@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Trophy, Sparkles, RefreshCw, Play } from 'lucide-react';
 import { Card } from '../../types';
 import { storage } from '../../utils/storage';

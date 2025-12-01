@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Key, BookOpen, Wrench, Trash2, AlertTriangle } from 'lucide-react';
+import { Settings as SettingsIcon, Key, BookOpen, Wrench, Trash2, AlertTriangle } from 'lucide-react';
 import { storage } from '../utils/storage';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -39,6 +39,12 @@ export default function Settings() {
   const saveSettings = () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     setSaved(true);
+    
+    // Trigger cloud sync if user is logged in to backup settings (API Key)
+    if (user) {
+        storage.syncToCloud(storage.getCards(), user.uid);
+    }
+
     setTimeout(() => setSaved(false), 2000);
   };
 
@@ -105,8 +111,13 @@ export default function Settings() {
             placeholder="Mistral API Key..." 
             value={settings.mistralApiKey}
             onChange={e => setSettings({...settings, mistralApiKey: e.target.value})}
-            className="p-2 border rounded-md focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none font-mono text-sm"
+            className={`p-2 border rounded-md focus:ring-2 outline-none font-mono text-sm
+              ${!settings.mistralApiKey ? 'border-red-300 focus:ring-red-200 focus:border-red-500' : 'border-gray-200 focus:ring-purple-500 focus:border-purple-500'}
+            `}
           />
+          {!settings.mistralApiKey && (
+            <p className="text-xs text-red-500 font-medium">API Key is missing! AI features won't work.</p>
+          )}
           <p className="text-xs text-gray-400">
             Required for "Explain this Card". Get it from console.mistral.ai
           </p>

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Play, CheckCircle, RefreshCw, HelpCircle } from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle, RefreshCw, HelpCircle } from 'lucide-react';
 import { storage } from '../../utils/storage';
 import { ai } from '../../utils/ai';
 

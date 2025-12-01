@@ -1,8 +1,7 @@
 import { Eye, Volume2, Sparkles } from 'lucide-react';
 import { Card, ReviewRating } from '../types';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { ai } from '../utils/ai';
-import { fsrs } from '../utils/fsrs';
 
 interface CardDisplayProps {
   card: Card;
@@ -23,12 +22,6 @@ export default function CardDisplay({
   const [loadingAi, setLoadingAi] = useState(false);
 
   const isZhToFr = direction === 'zh-fr';
-
-  // Calculate intervals for preview
-  const intervals = useMemo(() => {
-     if (!isFlipped) return null;
-     return fsrs.preview(card);
-  }, [card, isFlipped]);
 
   const speak = (e: React.MouseEvent) => {
     e.stopPropagation();
