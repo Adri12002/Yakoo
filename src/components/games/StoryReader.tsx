@@ -55,34 +55,58 @@ export default function StoryReader() {
     setSavedStories(storage.getStories());
   }, []);
 
+  // Generator Options
+  const [topic, setTopic] = useState('');
+  const [focusMode, setFocusMode] = useState<'mixed' | 'due' | 'new'>('mixed');
+
   const generateStory = async () => {
     setStatus('loading');
     setShowLibrary(false);
     setCurrentStoryId(null); // New story is not saved yet
     const allCards = storage.getCards();
     
-    if (allCards.length < 10) {
-      alert("You need at least 10 words to generate a story.");
+    if (allCards.length < 5 && focusMode === 'mixed') {
+      alert("You need at least 5 words to generate a mixed story.");
       setStatus('start');
       return;
     }
 
-    const struggleWords = allCards
-      .filter(c => (c.srsDifficulty > 6 || c.srsStability < 3))
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 5)
-      .map(c => c.hanzi);
-
-    const knownWords = allCards
-      .filter(c => !struggleWords.includes(c.hanzi))
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 15)
-      .map(c => c.hanzi);
-
-    const prompt = `Write a short story (3-5 sentences) in Chinese suitable for a learner.
+    let targetWords: string[] = [];
     
-    Target Vocab (Struggle): ${struggleWords.join(', ')}
-    Context Vocab (Known): ${knownWords.join(', ')}
+    // Select words based on mode
+    if (focusMode === 'due') {
+      targetWords = allCards
+        .filter(c => c.srsState === 'review') // Just review cards
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 10)
+        .map(c => c.hanzi);
+        
+      if (targetWords.length === 0) {
+          alert("No due cards found! Switching to mixed mode.");
+          setFocusMode('mixed');
+          // Fallback to mixed
+          targetWords = allCards.sort(() => 0.5 - Math.random()).slice(0, 10).map(c => c.hanzi);
+      }
+    } else if (focusMode === 'new') {
+       targetWords = allCards
+        .filter(c => c.srsState === 'new')
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 10)
+        .map(c => c.hanzi);
+    } else {
+       // Mixed: Struggle + Random Known
+       const struggle = allCards.filter(c => c.srsDifficulty > 6 || c.srsStability < 3);
+       const known = allCards.filter(c => !struggle.includes(c));
+       
+       const sWords = struggle.sort(() => 0.5 - Math.random()).slice(0, 5).map(c => c.hanzi);
+       const kWords = known.sort(() => 0.5 - Math.random()).slice(0, 5).map(c => c.hanzi);
+       targetWords = [...sWords, ...kWords];
+    }
+
+    const prompt = `Write a short story (4-6 sentences) in Chinese suitable for a learner.
+    
+    ${topic ? `THEME: ${topic}` : ''}
+    Target Vocabulary (Must Include): ${targetWords.join(', ')}
     
     Return ONLY a JSON object with this exact structure:
     {
@@ -420,14 +444,65 @@ export default function StoryReader() {
         </div>
 
         {status === 'start' && (
-          <div className="py-12 bg-white rounded-xl border border-indigo-100 shadow-sm text-center">
+          <div className="py-12 bg-white rounded-xl border border-indigo-100 shadow-sm text-center px-6">
             <BookOpen className="w-16 h-16 text-indigo-300 mx-auto mb-4" />
-            <p className="mb-6 text-gray-600 max-w-md mx-auto">Generate a unique story based on your vocabulary, or open your Library to read saved stories.</p>
-            <div className="flex justify-center gap-4">
-              <button onClick={() => setShowLibrary(true)} className="px-6 py-3 bg-white text-indigo-600 border-2 border-indigo-100 font-bold rounded-full hover:bg-indigo-50">
+            <h3 className="text-2xl font-bold text-indigo-900 mb-2">AI Story Generator</h3>
+            <p className="mb-8 text-gray-600 max-w-md mx-auto">Generate a unique story based on your vocabulary, or open your Library to read saved stories.</p>
+            
+            <div className="max-w-xs mx-auto space-y-4 mb-8 text-left">
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Story Theme (Optional)</label>
+                    <input 
+                        type="text" 
+                        placeholder="e.g. Travel, Cooking, Sci-Fi..." 
+                        value={topic} 
+                        onChange={e => setTopic(e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Vocabulary Focus</label>
+                    <div className="flex flex-col gap-2">
+                        <label className="flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors">
+                            <input 
+                                type="radio" 
+                                name="focus" 
+                                checked={focusMode === 'mixed'} 
+                                onChange={() => setFocusMode('mixed')} 
+                                className="text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-sm font-medium">Mixed (Struggle + Random)</span>
+                        </label>
+                        <label className="flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors">
+                            <input 
+                                type="radio" 
+                                name="focus" 
+                                checked={focusMode === 'due'} 
+                                onChange={() => setFocusMode('due')} 
+                                className="text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-sm font-medium">Due for Review</span>
+                        </label>
+                        <label className="flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors">
+                            <input 
+                                type="radio" 
+                                name="focus" 
+                                checked={focusMode === 'new'} 
+                                onChange={() => setFocusMode('new')} 
+                                className="text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-sm font-medium">New Words</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex justify-center gap-4 flex-col sm:flex-row">
+              <button onClick={() => setShowLibrary(true)} className="px-6 py-3 bg-white text-indigo-600 border-2 border-indigo-100 font-bold rounded-xl hover:bg-indigo-50 transition-colors">
                 Open Library
               </button>
-              <button onClick={generateStory} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-full hover:bg-indigo-700 shadow-lg">
+              <button onClick={generateStory} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all transform hover:-translate-y-0.5">
                 Generate Story
               </button>
             </div>

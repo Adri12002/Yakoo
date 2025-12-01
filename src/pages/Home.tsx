@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Play, Upload, RotateCw, Calendar, AlertCircle } from 'lucide-react';
+import { Play, Upload, RotateCw, Calendar, AlertCircle, Flame } from 'lucide-react';
 import { View } from '../App';
 import { storage } from '../utils/storage';
 import { Card } from '../types';
@@ -100,14 +100,28 @@ export default function Home({ setView }: HomeProps) {
         </button>
         
         <button
-          onClick={() => setView('import')}
+          onClick={() => setView('add')}
           className="flex flex-col items-center justify-center p-6 bg-white border-2 border-blue-100 rounded-xl shadow-sm hover:border-blue-500 hover:shadow-md transition-all active:scale-95 group"
         >
           <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
             <Upload className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800">Import Vocabulary</h3>
-          <p className="text-sm text-gray-500 mt-2">Add new words via CSV</p>
+          <h3 className="text-lg font-semibold text-gray-800">Add / Import</h3>
+          <p className="text-sm text-gray-500 mt-2">Scan, Paste or CSV</p>
+        </button>
+
+        {/* Endless Mode Button (Spans full width on mobile, col-span-2 on grid) */}
+        <button
+          onClick={() => setView('endless')}
+          className="sm:col-span-2 flex flex-row items-center justify-center p-4 bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-100 rounded-xl shadow-sm hover:border-orange-400 hover:shadow-md transition-all active:scale-95 group gap-3"
+        >
+           <div className="p-2 bg-orange-100 text-orange-600 rounded-lg group-hover:bg-orange-500 group-hover:text-white transition-colors">
+             <Flame className="w-5 h-5" />
+           </div>
+           <div className="text-left">
+             <h3 className="font-bold text-gray-800 group-hover:text-orange-700 transition-colors">Endless Challenge</h3>
+             <p className="text-xs text-gray-500">Test your streak with the entire deck!</p>
+           </div>
         </button>
       </div>
 

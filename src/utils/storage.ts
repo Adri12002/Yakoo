@@ -10,19 +10,49 @@ const COLLECTION_NAME = 'anki_users';
 
 interface DailyLog {
   date: string; // ISO date YYYY-MM-DD
-  count: number;
+  newCardsCount: number;
+  totalReviews: number;
+  timeSpent: number; // milliseconds
 }
 
-// We need to import Story types or define a generic one here to avoid circular deps if types are in components
-// Ideally types should be in types.ts. For now using 'any' or defining minimal interface
+// Interfaces for Story structure
+export interface StoryWord {
+  hanzi: string;
+  pinyin: string;
+  translation: string;
+  type: 'known' | 'struggle' | 'new';
+}
+
+export interface StorySentence {
+  id: string;
+  text: string;
+  translation: string;
+  words: StoryWord[];
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+}
+
+export interface StoryData {
+  title: string;
+  sentences: StorySentence[];
+  quiz: QuizQuestion[];
+}
+
 export interface SavedStory {
   id: string;
   date: string;
   title: string;
-  data: any; // The full story object
+  data: StoryData; // Typed story object
 }
 
 export const storage = {
+  /**
+   * Retrieves all cards from local storage and migrates them to FSRS format if necessary.
+   */
   getCards: (): Card[] => {
     try {
       const json = localStorage.getItem(STORAGE_KEY);
@@ -35,14 +65,15 @@ export const storage = {
     }
   },
 
-  // Migration: Convert old SM-2 cards to FSRS format on the fly
+  /**
+   * Migration: Convert old SM-2 cards to FSRS format on the fly.
+   */
   migrateToFsrs: (cards: Card[]): Card[] => {
     let changed = false;
     const migrated = cards.map(c => {
-      if (c.srsStability !== undefined) return c; // Already FSRS
+      if (c.srsStability !== undefined) return c;
 
       changed = true;
-      // Heuristic conversion
       const s = c.srsInterval || 0;
       const d = c.srsEaseFactor ? Math.max(1, Math.min(10, 11 - (c.srsEaseFactor * 2))) : 5;
       
@@ -51,7 +82,6 @@ export const storage = {
         srsState: (c.srsRepetitions === 0 ? 'new' : 'review') as 'new' | 'review',
         srsStability: s,
         srsDifficulty: d,
-        // If it's new (0 reps), clear the due date to ensure it enters the "New Card" queue
         srsDue: c.srsRepetitions === 0 ? '' : (c.srsDue || new Date().toISOString())
       };
     });
@@ -62,25 +92,35 @@ export const storage = {
     return migrated as Card[];
   },
 
-  // Force reset of 0-rep cards to 'new' state if they were incorrectly migrated
+  /**
+   * Fixes data integrity issues.
+   */
   repairDeck: (userId?: string) => {
     const cards = storage.getCards();
     let fixed = 0;
     const repaired = cards.map(c => {
-      // Condition 1: Should be new but marked as review (likely due to migration bug)
+      let needsFix = false;
+      let fixedCard = { ...c };
+
       if (c.srsRepetitions === 0 && c.srsState !== 'new') {
-        fixed++;
-        return { ...c, srsState: 'new', srsDue: '' } as Card;
+        fixedCard.srsState = 'new';
+        fixedCard.srsDue = '';
+        needsFix = true;
       }
-      // Condition 2: Is new, but has a due date (causing it to show as overdue in old Home logic)
-      if (c.srsState === 'new' && c.srsDue) {
-        fixed++;
-        return { ...c, srsDue: '' } as Card;
+      else if (c.srsState === 'new' && c.srsDue) {
+        fixedCard.srsDue = '';
+        needsFix = true;
       }
-      // Condition 3: Undefined repetitions (from old imports?) -> assume new
-      if (c.srsRepetitions === undefined) {
-         fixed++;
-         return { ...c, srsRepetitions: 0, srsState: 'new', srsDue: '' } as Card;
+      else if (c.srsRepetitions === undefined) {
+        fixedCard.srsRepetitions = 0;
+        fixedCard.srsState = 'new';
+        fixedCard.srsDue = '';
+        needsFix = true;
+      }
+
+      if (needsFix) {
+        fixed++;
+        return fixedCard as Card;
       }
       return c;
     });
@@ -99,7 +139,7 @@ export const storage = {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(REVIEW_LOG_KEY);
     localStorage.removeItem(STORIES_KEY);
-    localStorage.removeItem('mandarin-anki-settings'); // Also clear settings
+    localStorage.removeItem('mandarin-anki-settings');
     
     if (userId) {
       try {
@@ -112,9 +152,66 @@ export const storage = {
     window.location.reload();
   },
 
+  // --- Backup System ---
+
+  createBackup: (cards: Card[]) => {
+    try {
+      const timestamp = new Date().toISOString();
+      const backup = { timestamp, cards };
+      
+      // Get existing backups
+      const backupsStr = localStorage.getItem('mandarin-anki-backups');
+      const backups = backupsStr ? JSON.parse(backupsStr) : [];
+      
+      // Add new backup to start
+      backups.unshift(backup);
+      
+      // Keep only last 3
+      if (backups.length > 3) {
+        backups.length = 3;
+      }
+      
+      localStorage.setItem('mandarin-anki-backups', JSON.stringify(backups));
+    } catch (e) {
+      console.error("Backup failed", e);
+    }
+  },
+
+  getBackups: (): { timestamp: string; cards: Card[] }[] => {
+    try {
+      const str = localStorage.getItem('mandarin-anki-backups');
+      return str ? JSON.parse(str) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  restoreBackup: (backupIndex: number) => {
+    try {
+      const backups = storage.getBackups();
+      if (backups[backupIndex]) {
+        const cards = backups[backupIndex].cards;
+        storage.saveCards(cards); // Save will sync to cloud too
+        alert(`Restored backup from ${new Date(backups[backupIndex].timestamp).toLocaleString()}`);
+        window.location.reload();
+      }
+    } catch (e) {
+      alert("Failed to restore backup.");
+    }
+  },
+
   saveCards: (cards: Card[], userId?: string) => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+      
+      // Auto-Backup Logic: Backup if > 1 hour since last
+      const lastBackupTime = localStorage.getItem('mandarin-anki-last-backup-time');
+      const now = Date.now();
+      if (!lastBackupTime || now - parseInt(lastBackupTime) > 3600000) {
+        storage.createBackup(cards);
+        localStorage.setItem('mandarin-anki-last-backup-time', now.toString());
+      }
+
     } catch (e) {
       console.error('Failed to save cards locally', e);
     }
@@ -138,7 +235,6 @@ export const storage = {
 
   saveStory: (story: SavedStory, userId?: string) => {
     const stories = storage.getStories();
-    // Check if exists (update) or new
     const index = stories.findIndex(s => s.id === story.id);
     let newStories;
     if (index !== -1) {
@@ -151,11 +247,6 @@ export const storage = {
     localStorage.setItem(STORIES_KEY, JSON.stringify(newStories));
     
     if (userId) {
-      // We sync EVERYTHING (cards + stories) in one doc for simplicity in this architecture
-      // In a larger app, stories should be a subcollection.
-      // But to keep it "simple" as requested, we piggyback on the existing sync function logic
-      // by creating a dedicated syncStories function or merging data.
-      // Let's merge data in syncToCloud to be safe.
       storage.syncToCloud(storage.getCards(), userId); 
     }
   },
@@ -168,48 +259,76 @@ export const storage = {
     }
   },
 
-  // --- Daily Limits Tracking ---
+  // --- Daily Limits & Stats Tracking ---
 
-  getDailyCount: (): number => {
+  getDailyLog: (): DailyLog => {
     try {
       const json = localStorage.getItem(REVIEW_LOG_KEY);
-      if (!json) return 0;
-      const log: DailyLog = JSON.parse(json);
+      const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
       
-      const today = new Date().toISOString().split('T')[0];
-      if (log.date !== today) {
-        return 0; // New day, reset count
+      if (json) {
+        const log: DailyLog = JSON.parse(json);
+        if (log.date === today) {
+          return { 
+            date: today, 
+            newCardsCount: log.newCardsCount || 0, 
+            totalReviews: log.totalReviews || 0,
+            timeSpent: log.timeSpent || 0
+          };
+        }
       }
-      return log.count;
+      return { date: today, newCardsCount: 0, totalReviews: 0, timeSpent: 0 };
     } catch {
-      return 0;
+      return { date: new Date().toLocaleDateString('en-CA'), newCardsCount: 0, totalReviews: 0, timeSpent: 0 };
     }
   },
 
+  getDailyCount: (): number => {
+    return storage.getDailyLog().newCardsCount;
+  },
+
   incrementDailyCount: () => {
-    const today = new Date().toISOString().split('T')[0];
-    const current = storage.getDailyCount();
-    const newLog: DailyLog = { date: today, count: current + 1 };
-    localStorage.setItem(REVIEW_LOG_KEY, JSON.stringify(newLog));
+    const log = storage.getDailyLog();
+    log.newCardsCount += 1;
+    localStorage.setItem(REVIEW_LOG_KEY, JSON.stringify(log));
+  },
+
+  logReview: (isNewCard: boolean, timeElapsed: number = 0) => {
+    const log = storage.getDailyLog();
+    log.totalReviews += 1;
+    if (isNewCard) log.newCardsCount += 1;
+    log.timeSpent += timeElapsed;
+    localStorage.setItem(REVIEW_LOG_KEY, JSON.stringify(log));
   },
 
   // --- Cloud Methods ---
 
   syncToCloud: async (cards: Card[], userId: string) => {
     if (!userId) return;
+    
+    // Offline Check
+    if (!navigator.onLine) {
+        console.log("Offline: Queuing sync for later.");
+        localStorage.setItem('mandarin-anki-sync-pending', 'true');
+        return;
+    }
+
     try {
-      // Get current stories and settings to include in sync
       const stories = storage.getStories();
       const settings = getSettings();
       
       await setDoc(doc(db, COLLECTION_NAME, userId), {
         cards,
         stories, 
-        settings, // Sync settings (including API Key)
+        settings,
         lastUpdated: new Date().toISOString()
       });
+      // Clear pending flag on success
+      localStorage.removeItem('mandarin-anki-sync-pending');
     } catch (e) {
       console.error('Failed to sync to cloud', e);
+      // Set pending flag on error too, to retry later
+      localStorage.setItem('mandarin-anki-sync-pending', 'true');
     }
   },
 
@@ -224,16 +343,17 @@ export const storage = {
         let cloudCards = data.cards as Card[];
         cloudCards = storage.migrateToFsrs(cloudCards);
         
-        // Load stories
         if (data.stories) {
           localStorage.setItem(STORIES_KEY, JSON.stringify(data.stories));
         }
 
-        // Load settings (if available)
         if (data.settings) {
-           // Merge with existing local settings just in case, but cloud takes precedence for key
            const current = getSettings();
-           const merged = { ...current, ...data.settings };
+           const merged = { 
+             ...current, 
+             ...data.settings,
+             mistralApiKey: data.settings.mistralApiKey || current.mistralApiKey 
+           };
            localStorage.setItem('mandarin-anki-settings', JSON.stringify(merged));
         }
         

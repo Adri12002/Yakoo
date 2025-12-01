@@ -9,9 +9,9 @@ export default defineConfig({
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/messaging'],
           icons: ['lucide-react'],
-          utils: ['papaparse', 'uuid']
+          utils: ['papaparse', 'uuid', 'opencc-js', 'tesseract.js']
         }
       }
     }

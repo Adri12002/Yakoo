@@ -1,17 +1,20 @@
 import { Card, ReviewRating } from '../types';
 
 // FSRS v4.5 Parameters (Default Optimization)
+// These weights (w) determine how stability and difficulty evolve.
 const P = {
   request_retention: 0.9, // 90% retention target
-  maximum_interval: 36500,
+  maximum_interval: 36500, // Max interval in days (~100 years)
   w: [
-    0.4, 0.6, 2.4, 5.8, // Initial Stability for Again, Hard, Good, Easy
-    4.93, 0.94, 0.86, 0.01, // Difficulty Factors
-    1.49, 0.14, 0.94, // Stability Factors
-    2.18, 0.05, 0.34, 1.26, // Retrievability Factors
-    0.29, 2.61 // Hard Penalty & Easy Bonus
+    0.4, 0.6, 2.4, 5.8, // w[0-3]: Initial Stability for Again, Hard, Good, Easy
+    4.93, 0.94, 0.86, 0.01, // w[4-7]: Difficulty Factors
+    1.49, 0.14, 0.94, // w[8-10]: Stability Factors
+    2.18, 0.05, 0.34, 1.26, // w[11-14]: Retrievability Factors
+    0.29, 2.61 // w[15-16]: Hard Penalty & Easy Bonus
   ]
 };
+
+const MIN_LEARNING_INTERVAL_DAYS = 0.0035; // ~5 mins
 
 /**
  * FSRS v4.5 Implementation
@@ -21,16 +24,20 @@ const P = {
 export const fsrs = {
   /**
    * Calculates the next state of the card based on the rating.
+   * @param card The current card state.
+   * @param rating The rating given by the user ('again', 'hard', 'good', 'easy').
+   * @param now Current timestamp (defaults to now).
    */
   review: (card: Card, rating: ReviewRating, now: Date = new Date()): Partial<Card> => {
     const lastReview = card.srsLastReview ? new Date(card.srsLastReview) : now;
+    // Elapsed days since last review
     const elapsedDays = Math.max(0, (now.getTime() - lastReview.getTime()) / (1000 * 60 * 60 * 24));
     
     let S = card.srsStability || 0;
     let D = card.srsDifficulty || 0;
     const retrievability = Math.pow(1 + elapsedDays / (9 * S), -1); // Forgetting Curve
 
-    // 1. Determine Grade
+    // 1. Determine Grade (1=Again, 2=Hard, 3=Good, 4=Easy)
     let grade = 0;
     switch(rating) {
       case 'again': grade = 1; break;
@@ -41,11 +48,12 @@ export const fsrs = {
 
     // 2. Update State & Stability/Difficulty
     if (card.srsState === 'new') {
-      // Initial Review
+      // Initial Review for a new card
       D = initDifficulty(grade);
       S = initStability(grade);
       
-      // If 'again' on new card -> Learning
+      // If 'again' on new card -> Learning (Short interval)
+      // Else -> Review (Longer interval)
       const nextState = rating === 'again' ? 'learning' : 'review';
       return {
         srsState: nextState,
@@ -56,11 +64,11 @@ export const fsrs = {
       };
     } 
     
-    // D' = D - w6 * (grade - 3)
-    // D_new = w5 * D0 + (1 - w5) * D'
+    // For existing cards:
+    // Calculate new Difficulty
     const nextD = nextDifficulty(D, grade);
 
-    // Update Stability
+    // Calculate new Stability
     let nextS = S;
     if (rating === 'again') {
         nextS = nextForgetStability(D, S, retrievability);
@@ -68,7 +76,7 @@ export const fsrs = {
         nextS = nextRecallStability(D, S, retrievability, grade);
     }
 
-    // State Transition
+    // State Transition Logic
     let nextState = card.srsState;
     if (rating === 'again') {
         nextState = 'relearning';
@@ -155,18 +163,14 @@ function nextForgetStability(D: number, S: number, R: number): number {
 
 function nextInterval(S: number, now: Date, isShortTerm: boolean = false): string {
   const factor = 9 * (1 / P.request_retention - 1);
-  // For short term (learning/relearning), we don't enforce min 1 day
-  // We can allow fractional days or smaller intervals based on stability
   
   let days = S * factor;
   if (!isShortTerm) {
       days = Math.max(1, Math.round(days)); // Normal review: min 1 day, integer days
   } else {
-      // Learning/Relearning: Allow fractional days down to minutes?
+      // Learning/Relearning: Allow fractional days down to minutes
       // Stability is usually < 1 for these steps.
-      // E.g. S=0.1 -> Interval ~ 0.1 days ~ 2.4 hours
-      // Let's enforce a minimum of 5 minutes for sanity
-      days = Math.max(0.0035, days); // ~5 mins
+      days = Math.max(MIN_LEARNING_INTERVAL_DAYS, days); // ~5 mins min
   }
   
   const dueDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);

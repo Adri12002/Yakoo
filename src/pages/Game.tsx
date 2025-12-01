@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Grid, MessageSquare, Music, AlertCircle, BookOpen } from 'lucide-react';
+import { Trophy, Grid, MessageSquare, Music, AlertCircle, BookOpen, MessageCircle } from 'lucide-react';
 import SpeedMatch from '../components/games/SpeedMatch';
 import SentenceBuilder from '../components/games/SentenceBuilder';
 import ToneSurfer from '../components/games/ToneSurfer';
 import StoryReader from '../components/games/StoryReader';
+import AIChat from '../components/games/AIChat';
 import { storage } from '../utils/storage';
 
-type GameType = 'menu' | 'match' | 'sentence' | 'tone' | 'reader';
+type GameType = 'menu' | 'match' | 'sentence' | 'tone' | 'reader' | 'chat';
 
 export default function GameHub() {
   const [activeGame, setActiveGame] = useState<GameType>('menu');
@@ -18,6 +19,20 @@ export default function GameHub() {
   }, []);
 
   const games = [
+    {
+      id: 'chat',
+      title: 'AI Chat Tutor',
+      description: 'Roleplay real scenarios with instant correction.',
+      icon: <MessageCircle className="w-8 h-8 text-pink-600" />,
+      color: 'bg-pink-50 border-pink-200 hover:border-pink-500'
+    },
+    {
+      id: 'reader',
+      title: 'Story Reader',
+      description: 'Read AI-generated stories using your vocab.',
+      icon: <BookOpen className="w-8 h-8 text-indigo-600" />,
+      color: 'bg-indigo-50 border-indigo-200 hover:border-indigo-500'
+    },
     {
       id: 'match',
       title: 'Speed Match',
@@ -38,13 +53,6 @@ export default function GameHub() {
       description: 'Listen and identify the correct Pinyin tone.',
       icon: <Music className="w-8 h-8 text-purple-600" />,
       color: 'bg-purple-50 border-purple-200 hover:border-purple-500'
-    },
-    {
-      id: 'reader',
-      title: 'Story Reader',
-      description: 'Read AI-generated stories using your vocab.',
-      icon: <BookOpen className="w-8 h-8 text-indigo-600" />,
-      color: 'bg-indigo-50 border-indigo-200 hover:border-indigo-500'
     }
   ];
 
@@ -101,6 +109,7 @@ export default function GameHub() {
       {activeGame === 'sentence' && <SentenceBuilder />}
       {activeGame === 'tone' && <ToneSurfer />}
       {activeGame === 'reader' && <StoryReader />}
+      {activeGame === 'chat' && <AIChat />}
     </div>
   );
 }
