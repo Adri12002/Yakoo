@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, RefreshCw, Plus, Type, Play, Pause, CheckCircle, AlertCircle, HelpCircle, Save, Trash2, List, ChevronLeft } from 'lucide-react';
+import { BookOpen, RefreshCw, Plus, Type, Play, Pause, CheckCircle, AlertCircle, HelpCircle, Save, Trash2, List, ChevronLeft, ArrowRight } from 'lucide-react';
 import { storage, SavedStory } from '../../utils/storage';
 import { ai } from '../../utils/ai';
 import { Card } from '../../types';
@@ -118,8 +118,11 @@ export default function StoryReader() {
       try {
         const jsonStr = response.data.substring(response.data.indexOf('{'), response.data.lastIndexOf('}') + 1);
         const storyData = JSON.parse(jsonStr);
-        // Ensure IDs are unique if AI generated duplicates or generic ids
-        storyData.sentences = storyData.sentences.map((s: any, i: number) => ({...s, id: `s-${i}-${Date.now()}`}));
+        // Ensure IDs are unique
+        storyData.sentences = storyData.sentences.map((s: any, i: number) => ({
+            ...s, 
+            id: `s-${i}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        }));
         
         setStory(storyData);
         setStatus('reading');
@@ -529,10 +532,3 @@ export default function StoryReader() {
   );
 }
 
-function ArrowRight({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-    </svg>
-  );
-}

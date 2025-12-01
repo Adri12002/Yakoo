@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Key, BookOpen, Wrench, Trash2, AlertTriangle } from 'lucide-react';
+import { Settings as SettingsIcon, Key, BookOpen, Wrench, Trash2, AlertTriangle, Bell, CheckCircle } from 'lucide-react';
 import { storage } from '../utils/storage';
 import { useAuth } from '../contexts/AuthContext';
+import { requestNotificationPermission } from '../utils/firebase';
 
 interface UserSettings {
   newCardsPerDay: number;
@@ -31,10 +32,23 @@ export default function Settings() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
 
   useEffect(() => {
     setSettings(getSettings());
   }, []);
+
+  const handleEnableNotifications = async () => {
+    const token = await requestNotificationPermission();
+    if (token) {
+      setFcmToken(token);
+      alert('Notifications enabled! You will now receive daily reminders.');
+      // Ideally, send this token to your backend here to subscribe the user.
+      // For now, we just log it and confirm to the user.
+    } else {
+      alert('Could not enable notifications. Please check your browser permissions.');
+    }
+  };
 
   const saveSettings = () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -122,6 +136,35 @@ export default function Settings() {
             Required for "Explain this Card". Get it from console.mistral.ai
           </p>
         </div>
+      </div>
+
+      {/* Notifications */}
+      <div className="space-y-4 pt-4 border-t">
+        <h3 className="font-semibold text-gray-700 flex items-center gap-2">
+          <Bell className="w-4 h-4" />
+          Notifications
+        </h3>
+        <button 
+          onClick={handleEnableNotifications}
+          disabled={!!fcmToken}
+          className={`w-full py-2 border-2 font-bold rounded-lg transition-colors flex items-center justify-center gap-2
+            ${fcmToken 
+              ? 'border-green-200 bg-green-50 text-green-700 cursor-default' 
+              : 'border-indigo-100 text-indigo-600 hover:bg-indigo-50'
+            }`}
+        >
+          {fcmToken ? (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              Notifications Active
+            </>
+          ) : (
+            "Enable Daily Reminders"
+          )}
+        </button>
+        <p className="text-xs text-gray-400">
+          Get reminded to review your cards every day.
+        </p>
       </div>
 
       {/* Maintenance */}
